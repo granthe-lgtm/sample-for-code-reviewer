@@ -134,7 +134,7 @@ export class CodeReviewerStack extends cdk.Stack {
 		})
 
 		/* Cron */
-		const cron = new CRCron(this, 'Cron', { prefix: prefix } )
+		const cron = new CRCron(this, 'Cron', { prefix: prefix, layers: [ api.commonLayer, api.gitlabLayer, api.githubLayer ] } )
 
 		/* 创建任务队列SQS */
 		const sqs = new CRSqs(this, 'TaskSQS', { prefix: prefix })

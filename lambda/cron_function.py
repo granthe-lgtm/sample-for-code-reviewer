@@ -13,7 +13,7 @@ sns 					= boto3.resource('sns')
 s3 						= boto3.resource("s3")
 
 init_logger()
-log = logging.getLogge('crlog_{}'.format(__name__))
+log = logging.getLogger('crlog_{}'.format(__name__))
 
 def lambda_handler(event, context):
 

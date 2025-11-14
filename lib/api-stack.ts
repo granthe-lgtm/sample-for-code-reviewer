@@ -18,24 +18,27 @@ export class CRApi extends Construct {
 	public readonly api: apigateway.RestApi
 	public readonly api_key: apigateway.ApiKey
 	public readonly root_resource: apigateway.Resource
+	public readonly commonLayer: lambda.LayerVersion
+	public readonly gitlabLayer: lambda.LayerVersion
+	public readonly githubLayer: lambda.LayerVersion
 
 	constructor(scope: Construct, id: string, props: { prefix: string; api_key_condition: cdk.CfnCondition }) {
 		super(scope, id);
 
 		// Create three separate layers
-		const commonLayer = new lambda.LayerVersion(this, 'CommonLayerVersion', {
+		this.commonLayer = new lambda.LayerVersion(this, 'CommonLayerVersion', {
 			code: lambda.Code.fromAsset('layer/common-layer.zip'),
 			compatibleRuntimes: [lambda.Runtime.PYTHON_3_12],
 			description: 'Common dependencies: boto3, requests, PyYAML, typing_extensions',
 		})
 
-		const gitlabLayer = new lambda.LayerVersion(this, 'GitLabLayerVersion', {
+		this.gitlabLayer = new lambda.LayerVersion(this, 'GitLabLayerVersion', {
 			code: lambda.Code.fromAsset('layer/gitlab-layer.zip'),
 			compatibleRuntimes: [lambda.Runtime.PYTHON_3_12],
 			description: 'GitLab dependencies: python-gitlab',
 		})
 
-		const githubLayer = new lambda.LayerVersion(this, 'GitHubLayerVersion', {
+		this.githubLayer = new lambda.LayerVersion(this, 'GitHubLayerVersion', {
 			code: lambda.Code.fromAsset('layer/github-layer.zip'),
 			compatibleRuntimes: [lambda.Runtime.PYTHON_3_12],
 			description: 'GitHub dependencies: PyGithub with all dependencies',
@@ -54,7 +57,7 @@ export class CRApi extends Construct {
 			code: lambda.Code.fromAsset('lambda'),
 			handler: 'request_handler.lambda_handler',
 			timeout: cdk.Duration.seconds(30),
-			layers: [ commonLayer, gitlabLayer, githubLayer ],
+			layers: [ this.commonLayer, this.gitlabLayer, this.githubLayer ],
 			loggingFormat: lambda.LoggingFormat.JSON,
 			applicationLogLevelV2: lambda.ApplicationLogLevel.INFO,
 			logGroup: logGroup
@@ -67,7 +70,7 @@ export class CRApi extends Construct {
 			code: lambda.Code.fromAsset('lambda'),
 			handler: 'result_checker.lambda_handler',
 			timeout: cdk.Duration.seconds(30),
-			layers: [ commonLayer ],
+			layers: [ this.commonLayer ],
 			loggingFormat: lambda.LoggingFormat.JSON,
 			applicationLogLevelV2: lambda.ApplicationLogLevel.INFO,
 			logGroup: logGroup
@@ -80,7 +83,7 @@ export class CRApi extends Construct {
 			code: lambda.Code.fromAsset('lambda'),
 			handler: 'task_dispatcher.lambda_handler',
 			timeout: cdk.Duration.seconds(60 * 15),
-			layers: [ commonLayer, gitlabLayer, githubLayer ],
+			layers: [ this.commonLayer, this.gitlabLayer, this.githubLayer ],
 			loggingFormat: lambda.LoggingFormat.JSON,
 			applicationLogLevelV2: lambda.ApplicationLogLevel.INFO,
 			logGroup: logGroup
@@ -94,7 +97,7 @@ export class CRApi extends Construct {
 			code: lambda.Code.fromAsset('lambda'),
 			handler: 'task_executor.lambda_handler',
 			timeout: cdk.Duration.seconds(60 * 15),
-			layers: [ commonLayer ],
+			layers: [ this.commonLayer ],
 			loggingFormat: lambda.LoggingFormat.JSON,
 			applicationLogLevelV2: lambda.ApplicationLogLevel.INFO,
 			logGroup: logGroup
@@ -112,7 +115,7 @@ export class CRApi extends Construct {
 			code: lambda.Code.fromAsset('lambda'),
 			handler: 'rule_loader.lambda_handler',
 			timeout: cdk.Duration.seconds(60),
-			layers: [ commonLayer, gitlabLayer, githubLayer ],
+			layers: [ this.commonLayer, this.gitlabLayer, this.githubLayer ],
 			loggingFormat: lambda.LoggingFormat.JSON,
 			applicationLogLevelV2: lambda.ApplicationLogLevel.INFO,
 			logGroup: logGroup
@@ -124,7 +127,7 @@ export class CRApi extends Construct {
 			code: lambda.Code.fromAsset('lambda'),
 			handler: 'rule_updater.lambda_handler',
 			timeout: cdk.Duration.seconds(60),
-			layers: [ commonLayer, gitlabLayer, githubLayer ],
+			layers: [ this.commonLayer, this.gitlabLayer, this.githubLayer ],
 			loggingFormat: lambda.LoggingFormat.JSON,
 			applicationLogLevelV2: lambda.ApplicationLogLevel.INFO,
 			logGroup: logGroup
@@ -137,7 +140,7 @@ export class CRApi extends Construct {
 			code: lambda.Code.fromAsset('lambda'),
 			handler: 'report_receiver.lambda_handler',
 			timeout: cdk.Duration.seconds(30),
-			layers: [ commonLayer ],
+			layers: [ this.commonLayer ],
 			loggingFormat: lambda.LoggingFormat.JSON,
 			applicationLogLevelV2: lambda.ApplicationLogLevel.INFO,
 			logGroup: logGroup

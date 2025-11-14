@@ -9,7 +9,7 @@ export class CRCron extends Construct {
 	
 	public readonly cron_func: lambda.Function
 	
-	constructor(scope: Construct, id: string, props: { prefix: string; }) {
+	constructor(scope: Construct, id: string, props: { prefix: string; layers?: lambda.ILayerVersion[] }) {
 		super(scope, id);
 		
 		/* 处理进度的Lambda */
@@ -19,6 +19,7 @@ export class CRCron extends Construct {
 			code: lambda.Code.fromAsset('lambda'),
 			handler: 'cron_function.lambda_handler',
 			timeout: cdk.Duration.seconds(30),
+			layers: props.layers ?? []
 		})
 
 		/* EventBridge定时触发的规则 */
