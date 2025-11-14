@@ -8,6 +8,7 @@ from logger import init_logger
 
 DEFAULT_MODE = os.getenv('DEFAULT_MODE', 'all')
 DEFAULT_MODEL = os.getenv('DEFAULT_MODEL', 'claude3')
+MAX_GITHUB_COMMENT_LENGTH = 60000
 
 init_logger()
 log = logging.getLogger('crlog_{}'.format(__name__))
@@ -1195,4 +1196,74 @@ def validate_commit_exists(repository, commit_sha):
             
     except Exception as ex:
         log.warning(f'Error validating commit {commit_sha}: {ex}')
+        return False
+
+
+def build_pr_comment(report_url, report_data):
+    """
+    将报告数据转换为 GitHub 评论内容
+    """
+    sections = ["## 🤖 Code Review 结果", ""]
+    sections.append(f"📄 [点击查看完整报告]({report_url})")
+    sections.append("")
+
+    if not report_data:
+        sections.append("✅ 未发现需要向团队报告的问题。")
+    else:
+        for entry in report_data:
+            rule_name = entry.get('rule') or '未命名规则'
+            sections.append(f"### {rule_name}")
+            sections.append(_format_issue_content(entry.get('content')))
+            sections.append("")
+
+    sections.append("---")
+    sections.append("*此评论由 AWS Code Reviewer 自动生成*")
+
+    body = "\n".join(sections)
+    if len(body) > MAX_GITHUB_COMMENT_LENGTH:
+        body = body[:MAX_GITHUB_COMMENT_LENGTH - 200] + "\n\n...内容过长已截断，请查看完整报告。"
+    return body
+
+
+def _format_issue_content(content):
+    if isinstance(content, list):
+        lines = []
+        for idx, item in enumerate(content, 1):
+            title = item.get('title') or item.get('summary') or f'问题 {idx}'
+            filepath = item.get('filepath')
+            lines.append(f"{idx}. **{title}**")
+            if filepath:
+                lines.append(f"   - 📁 `{filepath}`")
+            detail = item.get('content')
+            if detail:
+                lines.append(f"   - 描述：{detail}")
+        return "\n".join(lines) if lines else "（无详细描述）"
+    if isinstance(content, str):
+        return content
+    if content is None:
+        return "（无详细描述）"
+    return f"```json\n{json.dumps(content, ensure_ascii=False, indent=2)}\n```"
+
+
+def post_review_comment_to_pr(repository, pr_number, report_url, report_data):
+    """
+    在 GitHub PR 中添加评论，不影响合并流程
+    """
+    try:
+        pr = repository.get_pull(pr_number)
+        body = build_pr_comment(report_url, report_data)
+        pr.create_issue_comment(body)
+        log.info(f'Posted code review comment to PR #{pr_number}')
+        return True
+    except UnknownObjectException as ex:
+        log.error(f'PR #{pr_number} not found', extra=dict(exception=str(ex)))
+        return False
+    except GithubException as ex:
+        log.error(
+            f'GitHub API error posting comment to PR #{pr_number}',
+            extra=dict(status=ex.status, exception=str(ex))
+        )
+        return False
+    except Exception as ex:
+        log.error(f'Fail to post comment to PR #{pr_number}', extra=dict(exception=str(ex)))
         return False

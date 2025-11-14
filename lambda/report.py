@@ -8,6 +8,7 @@ import re
 import base
 import boto3
 from logger import init_logger
+import github_code
 
 dynamodb				= boto3.resource("dynamodb")
 sns						= boto3.resource('sns')
@@ -92,6 +93,12 @@ def generate_report_and_notify(record, event, context):
 	except Exception as ex:
 		log.error('Fail to send SNS message.', extra=dict(exception=str(ex)))
 		return
+
+	# 可选：回写到 GitHub PR
+	try:
+		post_review_to_github_pr(event, result)
+	except Exception as ex:
+		log.error('Fail to post review to GitHub PR.', extra=dict(exception=str(ex)))
 	
 def generate_report(record, event, context):
 
@@ -150,3 +157,46 @@ def generate_report(record, event, context):
 	log.info(f'Report URL: {presigned_url}')
 
 	return dict(title=title, subtitle=subtitle, url=presigned_url, s3key=key, data=all_data)
+
+def post_review_to_github_pr(event, result):
+	commit_id = event.get('commit_id')
+	request_id = event.get('request_id')
+	if not commit_id or not request_id:
+		return
+
+	request_table = os.getenv('REQUEST_TABLE')
+	if not request_table:
+		return
+
+	item = dynamodb.Table(request_table).get_item(
+		Key={'commit_id': commit_id, 'request_id': request_id},
+		ConsistentRead=True
+	).get('Item')
+
+	if not item or item.get('source') != 'github':
+		return
+
+	pr_number = item.get('pr_number')
+	project_id = item.get('project_id')
+	if not pr_number or not project_id:
+		return
+
+	private_token = os.getenv('ACCESS_TOKEN', '')
+	if not private_token:
+		log.warning('ACCESS_TOKEN is not configured, skip posting to GitHub PR.')
+		return
+
+	repo_url = item.get('repo_url', 'https://github.com')
+
+	try:
+		repository = github_code.init_github_context(repo_url, project_id, private_token)
+	except Exception as ex:
+		log.error('Fail to init GitHub context.', extra=dict(exception=str(ex)))
+		return
+
+	report_url = result.get('url', '')
+	report_data = result.get('data', [])
+	success = github_code.post_review_comment_to_pr(repository, pr_number, report_url, report_data)
+
+	if success:
+		log.info(f'Successfully posted code review comment to PR #{pr_number}.')

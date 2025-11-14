@@ -200,6 +200,7 @@ export class CodeReviewerStack extends cdk.Stack {
 		cron.cron_func.addEnvironment('TASK_TABLE', database.task_table.tableName)
 		cron.cron_func.addEnvironment('SNS_TOPIC_ARN', sns.report_topic.topicArn)
 		cron.cron_func.addEnvironment('REPORT_TIMEOUT_SECONDS', `900`)
+		cron.cron_func.addEnvironment('ACCESS_TOKEN', access_token.valueAsString)
 
 		/* 权限配置 */
 		buckets.report_bucket.grantReadWrite(api.task_dispatcher)

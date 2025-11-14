@@ -79,17 +79,35 @@ def process(event, context):
 			params['commit_id'] = cid
 
 		# 向数据库插入记录
-		dynamodb.Table(REQUEST_TABLE).put_item(Item={
-			'commit_id': params['commit_id'],
-			'request_id': params['request_id'],
-			'project_name': params.get('project_name', 'No Name Project'),
-			'task_status': base.STATUS_START,
-			'task_complete': 0,
-			'task_failure': 0,
-			'task_total': 0,
-			'create_time': str(current_time),
-			'update_time': str(current_time),
-		})
+		record = dict(
+			commit_id=params['commit_id'],
+			request_id=params['request_id'],
+			project_name=params.get('project_name', 'No Name Project'),
+			task_status=base.STATUS_START,
+			task_complete=0,
+			task_failure=0,
+			task_total=0,
+			create_time=str(current_time),
+			update_time=str(current_time),
+			source=params.get('source', ''),
+			repo_url=params.get('repo_url', ''),
+			project_id=params.get('project_id', '')
+		)
+
+		# 如果是 PR 事件则保存 PR 相关信息，方便生成报告后回写 GitHub
+		if params.get('source') == 'github' and params.get('event_type') == 'merge':
+			try:
+				body = json.loads(event.get('body', '{}'))
+				pull_request = body.get('pull_request') or {}
+				if pull_request:
+					record['pr_number'] = pull_request.get('number')
+					record['pr_url'] = pull_request.get('html_url')
+					record['pr_title'] = pull_request.get('title')
+					log.info(f'Captured PR metadata for request({params["request_id"]}): #{record.get("pr_number")}')
+			except Exception as ex:
+				log.warning('Fail to capture PR metadata.', extra=dict(exception=str(ex)))
+
+		dynamodb.Table(REQUEST_TABLE).put_item(Item=record)
 		log.info('Complete inserting record to ddb.')
 		
 		# 调用第二个Lambda函数，使用'Event'进行异步调用
