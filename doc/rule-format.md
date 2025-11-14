@@ -2,7 +2,13 @@
 
 ## 概述
 
-评审规则文件位于仓库的 `.codereview/` 目录下，使用YAML格式定义。每个规则文件描述一个独立的评审任务，系统会根据规则中的条件进行匹配和执行。
+评审规则文件位于仓库 `.codereview/` 目录下，使用 YAML 格式定义。每个规则文件描述一个独立的评审任务，系统会根据规则中的条件进行匹配和执行。
+
+> **基础规则（Base Rules）**：如果需要在所有项目中共享一组默认规则，可以：
+> - 在 `lambda/.baseCodeReviewRule/` 目录内放置若干 `.yaml` 文件（例如 `scala-authserver-*.yaml`），这些文件会随着 Lambda 打包被上传，运行时优先加载；
+> - 或者在部署参数 `BaseRules` 中粘贴 YAML/JSON 文本（支持 `---` 分隔多份文档或 JSON array），平台会把它写入 `BASE_RULES` 环境变量。
+> 
+> 无论采用哪种方式，系统都会在执行时把 Base Rules 与仓库 `.codereview/*.yaml` 合并。如果仓库没有 `.codereview`，就只执行 Base Rules；若两者都存在，则共同生效。
 
 ## 多规则处理机制
 

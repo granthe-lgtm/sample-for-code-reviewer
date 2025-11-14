@@ -1,19 +1,71 @@
 import boto3
 import os, re, datetime, logging
-import base, codelib, report
+import base, codelib, report, yaml
+from glob import glob
 from logger import init_logger
 
 # Initialize AWS services clients
 dynamodb 				= boto3.resource("dynamodb")
 sqs_client 				= boto3.client("sqs")
-sns						= boto3.resource('sns')
-s3						= boto3.resource("s3")
+BASE_RULES_TEXT			= os.getenv('BASE_RULES', '')
+BASE_RULES_DIRNAME 		= '.baseCodeReviewRule'
+_base_rules_cache		= None
 
 init_logger()
 log = logging.getLogger('crlog_{}'.format(__name__))
 
 def match_branch(pattern, branch):
 	return pattern == branch
+
+def load_base_rules():
+	global _base_rules_cache
+	if _base_rules_cache is not None:
+		return _base_rules_cache
+
+	rules = []
+
+	def _append_from_text(text, source):
+		if not text:
+			return
+		try:
+			for doc in yaml.safe_load_all(text):
+				if not doc:
+					continue
+				if isinstance(doc, list):
+					rules.extend(doc)
+				elif isinstance(doc, dict):
+					rules.append(doc)
+				else:
+					log.warning('Unsupported base rule format ignored.', extra=dict(source=source, type=str(type(doc))))
+		except Exception as ex:
+			log.error('Fail to parse base rule.', extra=dict(source=source, exception=str(ex)))
+
+	# 1. 优先读取本地目录
+	current_dir = os.path.dirname(os.path.abspath(__file__))
+	candidates = [
+		os.path.join(current_dir, BASE_RULES_DIRNAME),
+		os.path.join(os.path.dirname(current_dir), BASE_RULES_DIRNAME),
+	]
+	seen_paths = set()
+	for directory in candidates:
+		if directory in seen_paths:
+			continue
+		seen_paths.add(directory)
+		if not os.path.isdir(directory):
+			continue
+		for path in sorted(glob(os.path.join(directory, '*.yaml'))):
+			try:
+				with open(path, 'r', encoding='utf-8') as f:
+					_append_from_text(f.read(), f'file:{path}')
+			except Exception as ex:
+				log.error('Fail to load base rule file.', extra=dict(file=path, exception=str(ex)))
+
+	# 2. 读取环境变量
+	if BASE_RULES_TEXT:
+		_append_from_text(BASE_RULES_TEXT, 'environment:BASE_RULES')
+
+	_base_rules_cache = rules
+	return _base_rules_cache
 
 def send_message(data):
 	sqs_url = os.getenv('TASK_SQS_URL')
@@ -270,19 +322,7 @@ def load_rules(event, repo_context, commit_id=None, branch=None):
 	
 	设计原则：
 	- Webtool模式：用户通过Web界面直接输入完整的系统提示词和用户提示词
-	- Webhook模式：从仓库的.codereview/*.yaml文件中加载结构化规则配置
-	
-	字段分类：
-	1. Built-in属性（系统固定字段）：
-	   - name, mode, model, event, branch, target, confirm
-	
-	2. 特殊字段（模式特定）：
-	   - prompt_system, prompt_user：仅在webtool模式下存在，用户直接指定完整提示词
-	   - system, order：仅在webhook模式下使用，用于动态构建提示词
-	
-	3. DIY属性（用户自定义字段）：
-	   - .codereview/*.yaml中的任意自定义字段（如business, design, requirement等）
-	   - 仅在webhook模式下存在，用于按order字段排序后动态构建prompt_user
+	- Webhook模式：从仓库内.codereview/*.yaml文件中加载结构化规则配置
 	
 	Args:
 		event: 触发事件，包含invoker字段区分触发模式
@@ -291,31 +331,30 @@ def load_rules(event, repo_context, commit_id=None, branch=None):
 		branch: 分支名
 	
 	Returns:
-		list: 规则列表，webtool模式返回单个构造规则，webhook模式返回从YAML加载的规则
+		list: 规则列表
 	"""
+	base_rules = list(load_base_rules())
 	if event.get('invoker') == 'webtool':
-		# Webtool模式：构造单个规则，包含用户直接输入的完整提示词
-		rules = [
-			{
-				"name": event.get("rule_name"),
-				"mode": event.get('mode'),
-				"number": 1,
-				"model": event.get('model'),
-				"event": event.get('event_type'),
-				"branch": event.get('target_branch'),
-				"target": event.get('target'),
-				"confirm": event.get('confirm', False),
-				# 特殊字段：用户通过webtool直接指定的完整提示词
-				"prompt_system": event.get('webtool_prompt_system'),
-				"prompt_user": event.get('webtool_prompt_user')
-			}
-		]
-		log.info(f'Make up rule for webtool.', extra=dict(rules=rules))
+		webtool_rule = {
+			"name": event.get("rule_name"),
+			"mode": event.get('mode'),
+			"number": 1,
+			"model": event.get('model'),
+			"event": event.get('event_type'),
+			"branch": event.get('target_branch'),
+			"target": event.get('target'),
+			"confirm": event.get('confirm', False),
+			"prompt_system": event.get('webtool_prompt_system'),
+			"prompt_user": event.get('webtool_prompt_user')
+		}
+		rules = base_rules + [webtool_rule]
+		log.info('Loaded rules for webtool invoker.', extra=dict(rule_count=len(rules)))
 	else:
-		# Webhook模式：从仓库的.codereview/*.yaml文件加载结构化规则
-		# 这些规则包含system字段和多个DIY字段，不包含prompt_user字段
-		rules = codelib.get_rules(repo_context, commit_id, branch)
+		repo_rules = codelib.get_rules(repo_context, commit_id, branch)
+		rules = base_rules + repo_rules
+		log.info('Loaded rules for webhook invoker.', extra=dict(base_rules=len(base_rules), repo_rules=len(repo_rules)))
 	return rules
+
 
 def get_targets(rule):
 	targets = [t.strip() for t in rule.get('target', '').strip().rstrip('.').split(',')]

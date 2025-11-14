@@ -1,0 +1,29 @@
+# .codereview/scala-security-review.yaml
+name: "AuthServer - Security Review"
+mode: "diff"
+branch: "main"
+event: "merge"
+target: "**/*.java,**/*.scala,**/*.conf"
+model: "claude3.5-sonnet"
+
+system: |
+business: |
+  Code review context: Auth Service (Scala/JS/Python).
+  Review scope: diffs from this commit.
+requirement: |
+  Tasks:
+  - Check if there are any security vulnerabilities in the code (e.g., injection risks, unsafe deserialization, insecure config/secrets, insufficient authz/authn, logging leakage). If no issues found, output [].
+
+  Output format requirements (strictly follow):
+  - Output only two tags: <output> and <thought>
+  - <output> contains a valid JSON array with the following structure:
+    [
+      {
+        "title": "Summary in Chinese, less than 30 words, no quotes and backslashes",
+        "content": "Description in Chinese, no quotes and backslashes; must explain why it's incorrect, provide evidence; include incorrect code and improved code snippets in markdown code blocks",
+        "filepath": "File path @ line number range, no quotes and backslashes"
+      }
+    ]
+  - JSON must properly escape quotes, backslashes, etc. inside JSON value fields; outside <output> tag, no need to escape newlines
+  - <thought> describes your reasoning process and which guidelines were violated
+order: "business,requirement"

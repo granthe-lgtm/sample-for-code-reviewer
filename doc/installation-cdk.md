@@ -98,6 +98,8 @@ npm run cdk -- deploy --require-approval never
 #   --parameters SMTPPort=587
 ```
 
+> 如果需要在所有项目中共享一组基础规则，可以准备一个 `base-rules.yaml` 并在命令中增加 `--parameters BaseRules="$(cat base-rules.yaml)"`。这些规则会写入 Lambda 环境变量 `BASE_RULES`，在运行时与仓库 `.codereview` 目录合并。
+
 **重要**：无论使用哪种方法，都必须确保以下文件存在：
 - `layer/common-layer.zip`
 - `layer/gitlab-layer.zip` 
@@ -122,3 +124,7 @@ npm run cdk -- deploy --require-approval never
 完成部署后，你可以选择关闭Cloud9
 
 > 功能路径：Cloud9服务 / 左侧菜单My environments / 选中Cloud9点击右侧Delete按钮
+## Base Rules (optional)
+
+Place shared YAML rules under \\lambda/.baseCodeReviewRule/\\ so they are packaged with the Lambda code, or pass them through the CloudFormation/CDK parameter \\BaseRules\\. Both approaches populate the Lambda environment variable \\BASE_RULES\\, and the dispatcher will merge these definitions with the repository-level \\.codereview\\ directory.
+

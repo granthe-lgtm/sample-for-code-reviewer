@@ -166,3 +166,8 @@ Events = Push events + Pull requests (也可以按照需要配置)
 S3 Bucket`{project_name}-report-{account}-{region}`中应该有报告产生
 
 收到代码评审报告邮件
+
+> Optional: set the CloudFormation parameter BaseRules to a YAML/JSON string if you need shared rules. The stack writes it to the Lambda environment variable BASE_RULES, letting the dispatcher merge it with .codereview rules for each repository.
+
+> Base Rules: store YAML files under \\.baseCodeReviewRule/\\ inside the Lambda source package or fill the CloudFormation parameter \\BaseRules\\. The platform copies them to the Lambda environment variable \\BASE_RULES\\, so every run automatically merges them with the repository's \\.codereview\\ rules.
+

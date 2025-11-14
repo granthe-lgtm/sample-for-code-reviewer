@@ -86,6 +86,12 @@ export class CodeReviewerStack extends cdk.Stack {
 			default: '',
 			description: '[Optional] Region for Bedrock Invoking.',
 		});
+
+		const base_rules = new cdk.CfnParameter(this, 'BaseRules', {
+			type: 'String',
+			default: '',
+			description: '[Optional] Base rules in YAML/JSON format, merged before repository rules.',
+		});
 		
 		const access_token = new cdk.CfnParameter(this, 'AccessToken', {
 			type: 'String',
@@ -101,13 +107,17 @@ export class CodeReviewerStack extends cdk.Stack {
 						Label: { default: 'Project Configuration' },
 						Parameters: ['ProjectName', 'EnableApiKey']
 					},
-					{
-						Label: { default: 'Bedrock Configuration (Optional)' },
-						Parameters: ['BedrockAccessKey', 'BedrockSecretKey', 'BedrockRegion']
-					},
-					{
-						Label: { default: 'Github Configuration (Optional)' },
-						Parameters: ['AccessToken']
+				{
+					Label: { default: 'Bedrock Configuration (Optional)' },
+					Parameters: ['BedrockAccessKey', 'BedrockSecretKey', 'BedrockRegion']
+				},
+				{
+					Label: { default: 'Base Rules (Optional)' },
+					Parameters: ['BaseRules']
+				},
+				{
+					Label: { default: 'Github Configuration (Optional)' },
+					Parameters: ['AccessToken']
 					},
 					{
 						Label: { default: 'Email Configuration (Optional)' },
@@ -153,6 +163,7 @@ export class CodeReviewerStack extends cdk.Stack {
 		api.task_dispatcher.addEnvironment('TASK_SQS_URL', sqs.task_queue.queueUrl)
 		api.task_dispatcher.addEnvironment('SNS_TOPIC_ARN', sns.report_topic.topicArn)
 		api.task_dispatcher.addEnvironment('ACCESS_TOKEN', access_token.valueAsString)
+		api.task_dispatcher.addEnvironment('BASE_RULES', base_rules.valueAsString)
 
 		api.task_executor.addEnvironment('BUCKET_NAME', buckets.report_bucket.bucketName)
 		api.task_executor.addEnvironment('REQUEST_TABLE', database.request_table.tableName)
