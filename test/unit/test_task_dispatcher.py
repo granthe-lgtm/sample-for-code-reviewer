@@ -11,6 +11,20 @@ import datetime
 from unittest.mock import Mock, patch, MagicMock
 import sys
 import os
+import types
+
+# 在导入被测模块前，注入 awslambdaric 替身，避免本地缺少该依赖导致导入失败
+if 'awslambdaric.lambda_runtime_log_utils' not in sys.modules:
+    _parent = types.ModuleType('awslambdaric')
+    _sub = types.ModuleType('awslambdaric.lambda_runtime_log_utils')
+    class _JsonFormatter:
+        def __init__(self, *a, **k):
+            pass
+        def format(self, record):
+            return '{}'
+    _sub.JsonFormatter = _JsonFormatter
+    sys.modules['awslambdaric'] = _parent
+    sys.modules['awslambdaric.lambda_runtime_log_utils'] = _sub
 
 # 添加lambda目录到路径，使测试能够导入被测试模块
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../lambda'))
@@ -85,6 +99,45 @@ class TestTaskDispatcher:
         
         error_message = str(exc_info.value)
         assert 'request_id' in error_message, "空事件应该报告缺失request_id字段"
+
+    def test_load_base_rules_from_local_dir(self):
+        """
+        测试目的：验证从本地目录 lambda/baseCodeReviewRule 加载基础规则成功。
+
+        验证点：
+        - 至少加载到 1 条规则（当前仓库内为 3 条）
+        - 规则名称包含预置的基础规则名称
+        - 二次调用命中缓存不抛异常
+        """
+        # 重置缓存，确保测试稳定
+        try:
+            task_dispatcher._base_rules_cache = None
+        except Exception:
+            pass
+
+        # 覆盖目录常量，确保从非点目录加载（与源码目录一致）
+        try:
+            task_dispatcher.BASE_RULES_DIRNAME = 'baseCodeReviewRule'
+        except Exception:
+            pass
+
+        rules = task_dispatcher.load_base_rules()
+        assert isinstance(rules, list), "应返回规则列表"
+        assert len(rules) >= 1, "应至少加载到 1 条基础规则"
+
+        names = {r.get('name') for r in rules if isinstance(r, dict)}
+        expected = {
+            'AuthServer - Bug Review',
+            'AuthServer - Security Review',
+            # 并发规则文件名为 concurrent-review，若名称后续调整为 Concurrency Review，此处为宽松包含
+            'AuthServer - Concurrency Review',
+            'AuthServer - Concurrent Review',
+        }
+        assert names & expected, f"规则名称应包含预置规则之一，当前: {names}"
+
+        # 再次调用应命中缓存，不应抛出异常
+        rules_again = task_dispatcher.load_base_rules()
+        assert isinstance(rules_again, list)
 
     def test_load_rules_webtool_push(self):
         """
