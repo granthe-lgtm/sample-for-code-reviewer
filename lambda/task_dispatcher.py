@@ -61,8 +61,8 @@ def load_base_rules():
 	# 从本地目录读取规则文件
 	current_dir = os.path.dirname(os.path.abspath(__file__))
 	candidates = [
-		os.path.join(current_dir, BASE_RULES_DIRNAME),  # lambda/.baseCodeReviewRule
-		os.path.join(os.path.dirname(current_dir), BASE_RULES_DIRNAME),  # .baseCodeReviewRule
+		os.path.join(current_dir, BASE_RULES_DIRNAME),  # lambda/baseCodeReviewRule
+		os.path.join(os.path.dirname(current_dir), BASE_RULES_DIRNAME),  # baseCodeReviewRule
 	]
 	
 	seen_paths = set()
