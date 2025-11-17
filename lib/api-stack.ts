@@ -97,7 +97,7 @@ export class CRApi extends Construct {
 			code: lambda.Code.fromAsset('lambda'),
 			handler: 'task_executor.lambda_handler',
 			timeout: cdk.Duration.seconds(60 * 15),
-			layers: [ this.commonLayer ],
+			layers: [ this.commonLayer, this.gitlabLayer, this.githubLayer ],
 			loggingFormat: lambda.LoggingFormat.JSON,
 			applicationLogLevelV2: lambda.ApplicationLogLevel.INFO,
 			logGroup: logGroup

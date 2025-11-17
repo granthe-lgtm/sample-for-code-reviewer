@@ -43,6 +43,7 @@ def lambda_handler(event, context):
 			ExpressionAttributeValues={ ':rid': request_id }
 		)
 		tasks = items.get('Items')
+		log.info(f'Found {len(tasks)} tasks for request_id={request_id}')
 
 		bucket_name = os.getenv('BUCKET_NAME')
 		for task in tasks:
