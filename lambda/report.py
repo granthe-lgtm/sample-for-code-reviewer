@@ -181,6 +181,14 @@ def post_review_to_github_pr(event, result):
 	if not pr_number or not project_id:
 		return
 
+	# Ensure PR number is integer for PyGithub
+	try:
+		pr_number = int(pr_number)
+	except Exception as ex:
+		log.error('Invalid PR number, skip posting to GitHub PR.', extra=dict(pr_number=str(pr_number), type=str(type(pr_number)), exception=str(ex)))
+		return
+
+
 	private_token = os.getenv('ACCESS_TOKEN', '')
 	if not private_token:
 		log.warning('ACCESS_TOKEN is not configured, skip posting to GitHub PR.')

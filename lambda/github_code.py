@@ -1248,8 +1248,22 @@ def _format_issue_content(content):
 def post_review_comment_to_pr(repository, pr_number, report_url, report_data):
     """
     在 GitHub PR 中添加评论，不影响合并流程
+    
+    参数:
+        repository: PyGithub Repository对象
+        pr_number: PR编号，可以是int或str类型（会自动转换为int）
+        report_url: 报告URL
+        report_data: 报告数据
     """
     try:
+        # PyGithub的get_pull方法要求pr_number必须是int类型
+        # 从DynamoDB读取的值可能是字符串，需要转换
+        if isinstance(pr_number, str):
+            pr_number = int(pr_number)
+        elif not isinstance(pr_number, int):
+            log.error(f'Invalid pr_number type: {type(pr_number)}, value: {pr_number}')
+            return False
+        
         pr = repository.get_pull(pr_number)
         body = build_pr_comment(report_url, report_data)
         pr.create_issue_comment(body)
