@@ -19,8 +19,8 @@ requirement: |
   - <output> contains a valid JSON array with the following structure:
     [
       {
-        "title": "Summary in Chinese, less than 30 words, no quotes and backslashes",
-        "content": "Description in Chinese, no quotes and backslashes; must explain why it's incorrect, provide evidence; include incorrect code and improved code snippets in markdown code blocks",
+        "title": "Summary in Chinese and English, less than 30 words, no quotes and backslashes",
+        "content": "Description in Chinese and English, no quotes and backslashes; must explain why it's incorrect, provide evidence; include incorrect code and improved code snippets in markdown code blocks",
         "filepath": "File path @ line number range, no quotes and backslashes"
       }
     ]
