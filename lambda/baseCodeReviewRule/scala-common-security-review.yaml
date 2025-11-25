@@ -1,5 +1,5 @@
 # .codereview/scala-security-review.yaml
-name: "AuthServer - Security Review"
+name: "Common - Security Review"
 mode: "diff"
 branch: "main"
 event: "merge"
@@ -8,7 +8,7 @@ model: "claude3.5-sonnet"
 
 system: |
 business: |
-  Code review context: Auth Service (Scala/JS/Python).
+  Code review context: Common (Scala/JS/Python).
   Review scope: diffs from this commit.
 requirement: |
   Tasks:
