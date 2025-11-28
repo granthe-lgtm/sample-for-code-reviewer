@@ -4,7 +4,7 @@ mode: "diff"
 branch: "main"
 event: "merge"
 target: "**/*.java,**/*.scala,**/*.conf,**/*.properties,**/*.yaml"
-model: "claude4.5-sonnet"
+model: "claude3.5-sonnet"
 
 system: |
 business: |
